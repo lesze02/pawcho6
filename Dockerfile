@@ -1,18 +1,24 @@
-FROM scratch AS builder
+  # syntax=docker/dockerfile:1.4
 
-ADD alpine-minirootfs-3.21.3-x86_64.tar.gz /
-ARG VERSION=1.0
-ENV VERSION=$VERSION
+  FROM alpine AS builder
 
-COPY goapp /goapp
+  RUN apk add --no-cache openssh-client git
 
-FROM nginx:alpine
+  ARG VERSION=1.0
+  ENV VERSION=$VERSION
 
-COPY --from=builder /goapp /usr/local/bin/goapp
+  RUN mkdir -p /root/.ssh && \
+    ssh-keyscan github.com >> /root/.ssh/known_hosts
 
-COPY nginx.conf /etc/nginx/nginx.conf
+  RUN --mount=type=ssh git clone git@github.com:Lesze02/pawcho6.git /lab06
 
-CMD /usr/local/bin/goapp & nginx -g 'daemon off;'
+  FROM nginx:alpine
 
-HEALTHCHECK --interval=10s --timeout=5s \
-  CMD curl -f http://localhost || exit 1
+  COPY --from=builder /lab06/goapp /usr/local/bin/goapp
+
+  COPY --from=builder /lab06/nginx.conf /etc/nginx/nginx.conf
+
+  CMD /usr/local/bin/goapp & nginx -g 'daemon off;'
+
+  HEALTHCHECK --interval=10s --timeout=5s \
+    CMD curl -f http://localhost || exit 1
